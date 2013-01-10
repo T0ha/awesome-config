@@ -13,6 +13,7 @@ local beautiful = beautiful
 local tags = layout.tags
 local wibox = wibox
 local menubar = menubar
+local xkb = xkb
 
 module("key")
 
