@@ -1,129 +1,108 @@
 local awful = awful
-local widget = widget
 local screen = screen
+local keyx = keyx
+local wibox = wibox
+local layout = layout
+local menu = menu
 local client = client
-local modkey = modkey
-local mypromptbox = mypromptbox
-
-local menu = require("menu")
-local xkb = require("xkb")
-local vicious = require("vicious")
+local layouts = layout.layouts
 
 module("bar")
 
 
 
--- Taglist
-function create_taglist(screen)
-  
-   buttons = awful.util.table.join(
-      awful.button({ }, 1, awful.tag.viewonly),
-      awful.button({ modkey }, 1, awful.client.movetotag),
-      awful.button({ }, 3, awful.tag.viewtoggle),
-      awful.button({ modkey }, 3, awful.client.toggletag),
-      awful.button({ }, 4, awful.tag.viewnext),
-      awful.button({ }, 5, awful.tag.viewprev)
-					    )
-   return awful.widget.taglist(screen, awful.widget.taglist.label.all, buttons)
-end
-
---Tasklist
-function create_tasklist(screen)
-   buttons = awful.util.table.join(
-      awful.button({ }, 1, function (c)
-		      if c == client.focus then
-			 c.minimized = true
-		      else
-			 if not c:isvisible() then
-			    awful.tag.viewonly(c:tags()[1])
-			 end
-			 -- This will also un-minimize
-			 -- the client, if needed
-			 client.focus = c
-			 c:raise()
-		      end
-			   end),
-      awful.button({ }, 3, function ()
-		      if instance then
-			 instance:hide()
-			 instance = nil
-		      else
-			 instance = awful.menu.clients({ width=250 })
-		      end
-			   end),
-      awful.button({ }, 4, function ()
-		      awful.client.focus.byidx(1)
-		      if client.focus then client.focus:raise() end
-			   end),
-      awful.button({ }, 5, function ()
-		      awful.client.focus.byidx(-1)
-		      if client.focus then client.focus:raise() end
-			   end))
-   return awful.widget.tasklist(function(c)
-				   return awful.widget.tasklist.label.currenttags(c, screen)
-				end, buttons)
-end
-
-
-
-function create_layoutbox(screen, layouts)
-   mylayoutbox = {}
-   mylayoutbox = awful.widget.layoutbox(screen)
-   mylayoutbox:buttons(awful.util.table.join(
-			     awful.button({ }, 1, function () awful.layout.inc(layouts, 1) end),
-			     awful.button({ }, 3, function () awful.layout.inc(layouts, -1) end),
-			     awful.button({ }, 4, function () awful.layout.inc(layouts, 1) end),
-			     awful.button({ }, 5, function () awful.layout.inc(layouts, -1) end)))
-   return mylayoutbox
-end
-
+-- {{{ Wibox
 -- Create a textclock widget
-mytextclock = awful.widget.textclock({ align = "right" })
+mytextclock = awful.widget.textclock()
 
--- Create a systray
-mysystray = widget({ type = "systray" })
+-- Create a wibox for each screen and add it
+mywibox = {}
+mypromptbox = {}
+mylayoutbox = {}
+mytaglist = {}
+mytaglist.buttons = awful.util.table.join(
+                    awful.button({ }, 1, awful.tag.viewonly),
+                    awful.button({ modkey }, 1, awful.client.movetotag),
+                    awful.button({ }, 3, awful.tag.viewtoggle),
+                    awful.button({ modkey }, 3, awful.client.toggletag),
+                    awful.button({ }, 4, function(t) awful.tag.viewnext(awful.tag.getscreen(t)) end),
+                    awful.button({ }, 5, function(t) awful.tag.viewprev(awful.tag.getscreen(t)) end)
+                    )
+mytasklist = {}
+mytasklist.buttons = awful.util.table.join(
+                     awful.button({ }, 1, function (c)
+                                              if c == client.focus then
+                                                  c.minimized = true
+                                              else
+                                                  -- Without this, the following
+                                                  -- :isvisible() makes no sense
+                                                  c.minimized = false
+                                                  if not c:isvisible() then
+                                                      awful.tag.viewonly(c:tags()[1])
+                                                  end
+                                                  -- This will also un-minimize
+                                                  -- the client, if needed
+                                                  client.focus = c
+                                                  c:raise()
+                                              end
+                                          end),
+                     awful.button({ }, 3, function ()
+                                              if instance then
+                                                  instance:hide()
+                                                  instance = nil
+                                              else
+                                                  instance = awful.menu.clients({ width=250 })
+                                              end
+                                          end),
+                     awful.button({ }, 4, function ()
+                                              awful.client.focus.byidx(1)
+                                              if client.focus then client.focus:raise() end
+                                          end),
+                     awful.button({ }, 5, function ()
+                                              awful.client.focus.byidx(-1)
+                                              if client.focus then client.focus:raise() end
+                                          end))
 
+bottomwibox = {}
+for s = 1, screen.count() do
+    -- Create a promptbox for each screen
+    mypromptbox[s] = awful.widget.prompt()
+    -- Create an imagebox widget which will contains an icon indicating which layout we're using.
+    -- We need one layoutbox per screen.
+    mylayoutbox[s] = awful.widget.layoutbox(s)
+    mylayoutbox[s]:buttons(awful.util.table.join(
+                           awful.button({ }, 1, function () awful.layout.inc(layouts, 1) end),
+                           awful.button({ }, 3, function () awful.layout.inc(layouts, -1) end),
+                           awful.button({ }, 4, function () awful.layout.inc(layouts, 1) end),
+                           awful.button({ }, 5, function () awful.layout.inc(layouts, -1) end)))
+    -- Create a taglist widget
+    mytaglist[s] = awful.widget.taglist(s, awful.widget.taglist.filter.all, mytaglist.buttons)
 
-for s = 1,  screen.count() do
-   -- Create a promptbox for each screen
-   mypromptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
+    -- Create a tasklist widget
+    mytasklist[s] = awful.widget.tasklist(s, awful.widget.tasklist.filter.currenttags, mytasklist.buttons)
 
-   top = {
-      {
-	 menu.create(),
-	 create_taglist(s),
-	 mypromptbox[s],
-	 layout = awful.widget.layout.horizontal.leftright
-      },
-      
-      create_layoutbox(s),
-      mytextclock,
-      s == 1 and mysystray or nil,
-      s == 1 and xkb.kbdcfg.widget or nil,
-      create_tasklist(s),
-      layout = awful.widget.layout.horizontal.rightleft
-   }
-   awful.wibox({screen = s, position = "top", widgets = top})
-   
-   cpu = widget({ type = "textbox"})
-   vicious.register(cpu, vicious.widgets.cpu, "CPU: $1 % |")
-   
-   mem = widget({ type = "textbox" })
-   vicious.register(mem, vicious.widgets.mem, " RAM: $1% ($2MB / $3MB) |")
+    -- Create the wibox
+    mywibox[s] = awful.wibox({ position = "top", screen = s })
 
-   hdd = widget({ type = "textbox" })
-   vicious.register(hdd, vicious.widgets.fs, " HDD: / ${/ avail_gb}GB; /home ${/home avail_gb}GB; /srv ${/srv avail_gb}GB |" )
+    -- Widgets that are aligned to the left
+    local left_layout = wibox.layout.fixed.horizontal()
+    left_layout:add(menu.mylauncher)
+    left_layout:add(mytaglist[s])
+    left_layout:add(mypromptbox[s])
 
-   bat = widget({ type = "textbox" })
-   vicious.register(bat, vicious.widgets.bat, "Batery: $1 ($2%  $3s) ", 10, "BAT0")
-   
-   bottom = { 
-      s == 1 and cpu or nil,
-      s == 1 and mem or nil,
-      s == 1 and hdd or nil,
-      s == 1 and bat or nil,
-      -- s == 1 and xkb.indicators.widget or nil,
-      layout = awful.widget.layout.horizontal.leftright
-   }
-   awful.wibox({screen = s, position = "bottom", widgets = bottom})
+    -- Widgets that are aligned to the right
+    local right_layout = wibox.layout.fixed.horizontal()
+    if s == 1 then right_layout:add(wibox.widget.systray()) end
+    right_layout:add(keyx.kbdcfg.widget)
+    right_layout:add(mytextclock)
+    right_layout:add(mylayoutbox[s])
+
+    -- Now bring it all together (with the tasklist in the middle)
+    local layout = wibox.layout.align.horizontal()
+    layout:set_left(left_layout)
+    layout:set_middle(mytasklist[s])
+    layout:set_right(right_layout)
+
+    mywibox[s]:set_widget(layout)
 end
+-- }}}
