@@ -18,6 +18,7 @@ layout = require("layout")
 menu = require("menu")
 bar = require("bar")
 local key = require("key")
+local autostart = require("autostart")
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to

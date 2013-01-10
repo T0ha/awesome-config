@@ -6,6 +6,7 @@ local layout = layout
 local menu = menu
 local client = client
 local layouts = layout.layouts
+local vicious = require("vicious")
 
 module("bar")
 
@@ -62,8 +63,8 @@ mytasklist.buttons = awful.util.table.join(
                                               awful.client.focus.byidx(-1)
                                               if client.focus then client.focus:raise() end
                                           end))
+bottom = {}
 
-bottomwibox = {}
 for s = 1, screen.count() do
     -- Create a promptbox for each screen
     mypromptbox[s] = awful.widget.prompt()
@@ -104,5 +105,33 @@ for s = 1, screen.count() do
     layout:set_right(right_layout)
 
     mywibox[s]:set_widget(layout)
+
+    bottom[s] = awful.wibox({screen = s, position = "bottom", widgets = bottom})
+    
+    local bottom_layout = wibox.layout.align.horizontal()
+    local bottom_layout_left = wibox.layout.fixed.horizontal()
+
+    cpu = wibox.widget.textbox()
+    vicious.register(cpu, vicious.widgets.cpu, "CPU: $1 % |")
+    
+    mem = wibox.widget.textbox()
+    vicious.register(mem, vicious.widgets.mem, " RAM: $1% ($2MB / $3MB) |")
+
+    hdd = wibox.widget.textbox()
+    vicious.register(hdd, vicious.widgets.fs, " HDD: / ${/ avail_gb}GB; /home ${/home avail_gb}GB; /srv ${/srv avail_gb}GB |" )
+
+    bat = wibox.widget.textbox()
+    vicious.register(bat, vicious.widgets.bat, "Batery: $1 ($2%  $3s) ", 10, "BAT0")
+    
+    bottom_layout_left:add(cpu)
+    bottom_layout_left:add(mem)
+    bottom_layout_left:add(hdd)
+    bottom_layout_left:add(bat)
+    
+    bottom_layout:set_left(bottom_layout_left)
+    
+    bottom[s]:set_widget(bottom_layout)
+
+    
 end
 -- }}}
